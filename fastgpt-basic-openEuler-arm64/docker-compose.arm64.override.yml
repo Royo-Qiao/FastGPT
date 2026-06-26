@@ -1,0 +1,153 @@
+services:
+  fastgpt-vector:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-pg
+
+  fastgpt-mongo:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-mongo
+
+  fastgpt-redis:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-redis
+
+  fastgpt-minio:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-minio
+    ports: !override
+      - "${MINIO_BIND_ADDR:-172.16.2.198}:${MINIO_API_PORT:-19000}:9000"
+      - "${MINIO_BIND_ADDR:-172.16.2.198}:${MINIO_CONSOLE_PORT:-19001}:9001"
+
+  fastgpt-app:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-app
+    ports: !override
+      - "${FASTGPT_BIND_ADDR:-172.16.2.198}:${FASTGPT_PORT:-13000}:3000"
+    networks: !override
+      - data
+      - app
+      - codesandbox
+      - aiproxy
+    environment:
+      FE_DOMAIN: ${FASTGPT_FE_DOMAIN:-http://172.16.2.198:13000}
+      STORAGE_EXTERNAL_ENDPOINT: ${FASTGPT_STORAGE_EXTERNAL_ENDPOINT:-http://172.16.2.198:19000}
+      DEFAULT_ROOT_PSW: ${FASTGPT_DEFAULT_ROOT_PSW:?Run ./scripts/init-env.sh first}
+      ROOT_KEY: ${FASTGPT_ROOT_KEY:?Run ./scripts/init-env.sh first}
+      TOKEN_KEY: ${FASTGPT_TOKEN_KEY:?Run ./scripts/init-env.sh first}
+      FILE_TOKEN_KEY: ${FASTGPT_FILE_TOKEN_KEY:?Run ./scripts/init-env.sh first}
+      AES256_SECRET_KEY: ${FASTGPT_AES256_SECRET_KEY:?Run ./scripts/init-env.sh first}
+      PLUGIN_TOKEN: ${FASTGPT_PLUGIN_TOKEN:?Run ./scripts/init-env.sh first}
+      CODE_SANDBOX_TOKEN: ${FASTGPT_CODE_SANDBOX_TOKEN:?Run ./scripts/init-env.sh first}
+      AIPROXY_API_TOKEN: ${FASTGPT_AIPROXY_TOKEN:?Run ./scripts/init-env.sh first}
+      AGENT_SANDBOX_PROVIDER: !reset null
+      AGENT_SANDBOX_ENABLE_VOLUME: "false"
+      LOG_CONSOLE_LEVEL: info
+    # 容器启动时 patch _error 页面，消除崩溃自动跳转 + toast 弹窗
+    # user: root 因为镜像默认 USER=nextjs 无法读取 bind mount 的 patches 文件
+    # 显式调用 sh 而非依赖 +x 位（NTFS / FAT 挂载不保留 POSIX 权限）
+    user: root
+    entrypoint: ["/bin/sh", "/patches/init-patch.sh"]
+    volumes:
+      - ./patches:/patches:ro
+
+  fastgpt-code-sandbox:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-code-sandbox
+    environment:
+      SANDBOX_TOKEN: ${FASTGPT_CODE_SANDBOX_TOKEN:?Run ./scripts/init-env.sh first}
+      SANDBOX_POOL_SIZE: ${SANDBOX_POOL_SIZE:-4}
+      LOG_CONSOLE_LEVEL: info
+
+  fastgpt-mcp-server:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-mcp-server
+    ports: !override
+      - "${MCP_BIND_ADDR:-172.16.2.198}:${MCP_PORT:-13003}:3000"
+
+  fastgpt-plugin:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-plugin
+    environment:
+      AUTH_TOKEN: ${FASTGPT_PLUGIN_TOKEN:?Run ./scripts/init-env.sh first}
+      STORAGE_EXTERNAL_ENDPOINT: ${FASTGPT_STORAGE_EXTERNAL_ENDPOINT:-http://172.16.2.198:19000}
+      LOG_CONSOLE_LEVEL: info
+    volumes:
+      - ./plugin-patch/index.js:/app/dist/index.js:ro
+
+  fastgpt-aiproxy:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-aiproxy
+    environment:
+      ADMIN_KEY: ${FASTGPT_AIPROXY_TOKEN:?Run ./scripts/init-env.sh first}
+
+  fastgpt-aiproxy-pg:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-aiproxy-pg
+
+  opensandbox-server:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-opensandbox-server
+    profiles:
+      - agent-sandbox
+
+  opensandbox-agent-sandbox-image:
+    platform: linux/arm64
+    profiles:
+      - prepull
+      - agent-sandbox
+
+  opensandbox-execd-image:
+    platform: linux/arm64
+    profiles:
+      - prepull
+      - agent-sandbox
+
+  opensandbox-egress-image:
+    platform: linux/arm64
+    profiles:
+      - prepull
+      - agent-sandbox
+
+  fastgpt-volume-manager:
+    platform: linux/arm64
+    container_name: ${COMPOSE_PROJECT_NAME:-fgbasic}-volume-manager
+    profiles:
+      - agent-sandbox
+
+networks:
+  data:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_data
+  app:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_app
+  codesandbox:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_codesandbox
+  opensandbox:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_opensandbox
+  aiproxy:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_aiproxy
+
+volumes:
+  fastgpt-pg:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_pg
+  fastgpt-mongo:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_mongo
+  fastgpt-redis:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_redis
+  fastgpt-minio:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_minio
+  fastgpt-milvus-minio:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_milvus_minio
+  fastgpt-milvus-etcd:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_milvus_etcd
+  fastgpt-milvus-data:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_milvus_data
+  fastgpt-ob-data:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_ob_data
+  fastgpt-ob-config:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_ob_config
+  fastgpt-seekdb-data:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_seekdb_data
+  fastgpt-seekdb-config:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_seekdb_config
+  fastgpt-aiproxy_pg:
+    name: ${COMPOSE_PROJECT_NAME:-fgbasic}_aiproxy_pg

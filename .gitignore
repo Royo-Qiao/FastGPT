@@ -1,3 +1,4 @@
 models/*.tar
 fastgpt-basic-openEuler-arm64/mineru/parts/mineru.part.*
+fastgpt-basic-openEuler-arm64/.env
 .DS_Store

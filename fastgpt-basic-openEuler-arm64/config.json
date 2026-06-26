@@ -1,0 +1,21 @@
+{
+  "feConfigs": {
+    "mcpServerProxyEndpoint": "http://127.0.0.1:13003"
+  },
+  "systemEnv": {
+    "datasetParseMaxProcess": 10,
+    "vectorMaxProcess": 10,
+    "qaMaxProcess": 10,
+    "vlmMaxProcess": 10,
+    "hnswEfSearch": 100,
+    "hnswMaxScanTuples": 100000,
+    "customPdfParse": {
+      "url": "http://172.16.2.198:8010/v2/parse/file",
+      "key": "",
+      "doc2xKey": "",
+      "textinAppId": "",
+      "textinSecretCode": "",
+      "price": 0
+    }
+  }
+}
